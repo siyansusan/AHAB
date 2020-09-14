@@ -24,6 +24,8 @@ rex=Rex()
 import TempFilename
 from CigarString import CigarString
 from SamPairedReadStream import SamPairedReadStream
+from SamHspFactory import SamHspFactory
+from SamHspClusterer import SamHspClusterer
 
 class Target:
     def __init__(self,ID,pos,seq):
@@ -41,6 +43,13 @@ def loadTargets(filename):
             targets.append(Target(ID,int(pos),seq))
     return targets
 
+def getReadEnds(readGroup,end1or2):
+    reads=[]
+    for pair in readGroup:
+        if(end1or2==1): reads.append(pair.read1)
+        else: reads.append(pair.read2)
+    return reads
+
 #=========================================================================
 # main()
 #=========================================================================
@@ -54,33 +63,44 @@ targets=loadTargets(targetFile)
 
 # Process SAM file
 #reader=SamReader(samFile)
+hspFactory=SamHspFactory()
 stream=SamPairedReadStream(samFile)
 while(True):
-    pair=stream.nextPair()
-    if(pair is None): break
-    read1=pair.read1; read2=pair.read2
-    score=pair.matchProportion()
-    print(pair.getID(),score,sep="\t")
+    readGroup=stream.nextGroup()
+    if(readGroup is None): break
+    firstReads=getReadEnds(readGroup,1)
+    HSPs=hspFactory.makeHSPs(firstReads)
+    print(len(readGroup),"reads in group",len(HSPs),"HSPs")
+    HSPs=SamHspClusterer.cluster(HSPs)
+    print("\t==> after clustering there are ",len(HSPs),"HSPs")
+
+#while(True):
+#    pair=stream.nextPair()
+#    if(pair is None): break
+#    read1=pair.read1; read2=pair.read2
+#    score=pair.computeScore()
+#    print(pair.getID(),score,read1.getCigar().toString(),
+#          read2.getCigar().toString(),"".join(read1.parseMDtag()),
+#          "".join(read1.parseMDtag()),sep="\t")
+
     #print("pair:",read1.getID(),read2.getID(),sep="\t")
     #if(read1.getRefName()!=read2.getRefName()):
     #    print("REF MISMATCH IN PAIRED READ:",read1.getRefName(),
     #          read2.getRefName(),sep="\t")
-
-    continue
-
-    rec=reader.nextSequence()
-    if(rec is None): break
-    if(rec.flag_unmapped()): continue
-    if(dedup and rec.flag_PCRduplicate()): continue
-    firstOfPair=rec.flag_firstOfPair()
-    cigar=rec.CIGAR
-    if(cigar.completeMatch()): continue
-    cigar.computeIntervals(rec.getRefPos())
-    readLen=len(rec.getSequence())
-    MDfields=rec.parseMDtag()
-    refName=rec.getRefName()
-    refPos=rec.getRefPos()
-    print(rec.ID,firstOfPair,refName,refPos,cigar.toString(),MDfields,sep="\t")
+    #continue
+    #rec=reader.nextSequence()
+    #if(rec is None): break
+    #if(rec.flag_unmapped()): continue
+    #if(dedup and rec.flag_PCRduplicate()): continue
+    #firstOfPair=rec.flag_firstOfPair()
+    #cigar=rec.CIGAR
+    #if(cigar.completeMatch()): continue
+    #cigar.computeIntervals(rec.getRefPos())
+    #readLen=len(rec.getSequence())
+    #MDfields=rec.parseMDtag()
+    #refName=rec.getRefName()
+    #refPos=rec.getRefPos()
+    #print(rec.ID,firstOfPair,refName,refPos,cigar.toString(),MDfields,sep="\t")
 
 
 
