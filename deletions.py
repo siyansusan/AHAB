@@ -28,6 +28,8 @@ from SamHspFactory import SamHspFactory
 from SamHspClusterer import SamHspClusterer
 from SamAnnotation import SamAnnotation
 
+MIN_IDENTITY=0.9
+
 class Target:
     def __init__(self,ID,pos,seq):
         self.ID=ID
@@ -80,9 +82,22 @@ while(True):
     if(not anno.allRefsSame()): continue ### debugging
     if(anno.firstRef()!="chrX"): continue ### debugging
     if(numHSPs<2): continue
+    if(not anno.allSameStrand()): continue
+    if(anno.lowestPercentIdentity()<MIN_IDENTITY): continue
+
     print(readGroup.getID(),"\t==> after clustering there are ",len(HSPs),
           " HSPs",sep="")
     for hsp in HSPs:
         print(hsp.toString(),"\t",sep="",end="")
     print()
 
+    readGapLengths=anno.getReadGapLengths()
+    refGapLengths=anno.getRefGapLengths()
+    if(len(readGapLengths)>0):
+        print("\tREAD GAPS:",",".join([str(x) for x in readGapLengths]))
+    if(len(refGapLengths)>0):
+        print("\tREF GAPS:",",".join([str(x) for x in refGapLengths]))
+        if(max(refGapLengths)>1000000): 
+            print("\tMAX GAP LENGTH EXCEEDED")
+
+    
