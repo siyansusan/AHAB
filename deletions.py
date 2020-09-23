@@ -59,6 +59,8 @@ def getAlignabilities(anno,bigwig,OUT):
         stats=bigwig.stats(hsp.getRefName(),refCoords.getBegin(),
                            refCoords.getEnd(),type="min")
         for x in stats: print(x,file=OUT,flush=True)
+        minValue=min(stats)
+        hsp.setAlignability(minValue)
 
 #=========================================================================
 # main()
@@ -69,15 +71,16 @@ if(len(sys.argv)!=3):
 
 # Process configuration file
 config=ConfigFile(configFilename)
-dedup=configFile.lookupOrDie("DEDUPLICATE")
+dedup=config.lookupOrDie("DEDUPLICATE")
 dedup=True if dedup=="True" or dedup=="true" or dedup=="T" or dedup=="TRUE" \
     or dedup=="Yes" or dedup=="yes" else False
-MIN_IDENTITY=float(configFile.lookupOrDie("MIN_IDENTITY"))
-MAX_REF_GAP=float(configFile.lookupOrDie("MAX_REF_GAP"))
-alignabilityMap=configFile.lookupOrDie("ALIGNABILITY")
+MIN_IDENTITY=float(config.lookupOrDie("MIN_IDENTITY"))
+MAX_REF_GAP=float(config.lookupOrDie("MAX_REF_GAP"))
+alignabilityMap=config.lookupOrDie("ALIGNABILITY")
+MIN_ALIGNABILITY=float(config.lookupOrDie("MIN_ALIGNABILITY"))
 
 # Load target locations
-targets=loadTargets(configFile.lookupOrDie("TARGET_SITES"))
+targets=loadTargets(config.lookupOrDie("TARGET_SITES"))
 
 # Open the ENCODE alignability map
 bigwig=pyBigWig.open(alignabilityMap)
@@ -86,9 +89,10 @@ bigwig=pyBigWig.open(alignabilityMap)
 hspFactory=SamHspFactory()
 stream=SamPairedReadStream(samFile)
 #numErrors=0
-numGreater1000000=0; numGreater100000=0; numGreater10000=0; numGreater1000=0
+#numGreater1000000=0; numGreater100000=0; numGreater10000=0; numGreater1000=0
 readsKept=0
 ALIGNABILITIES=open("alignabilities.txt","wt")
+REFGAPS=open("ref-gaps.txt","wt")
 while(True):
     readGroup=stream.nextGroup()
     if(readGroup is None): break
@@ -108,6 +112,7 @@ while(True):
     if(not anno.allSameStrand()): continue
     if(anno.lowestPercentIdentity()<MIN_IDENTITY): continue
     getAlignabilities(anno,bigwig,ALIGNABILITIES)
+    if(anno.getLowestAlignability()<MIN_ALIGNABILITY): continue
 
     readGapLengths=anno.getReadGapLengths()
     refGapLengths=anno.getRefGapLengths()
@@ -122,20 +127,9 @@ while(True):
     if(len(refGapLengths)>0):
         print("\tREF GAPS:",",".join([str(x) for x in refGapLengths]))
         m=max(refGapLengths)
-        if(m>1000000): numGreater1000000+=1
-        elif(m>100000): numGreater100000+=1
-        elif(m>10000): numGreater10000+=1
-        elif(m>1000): numGreater1000+=1
-        #if(max(refGapLengths)>MAX_REF_GAP): 
-        #    print("\tMAX GAP LENGTH EXCEEDED")
-            #numErrors+=1
+        print(m,file=REFGAPS,flush=True)
     readsKept+=1
     print("----------------------------------------------------------------")
-ALIGNABILITES.close()
-
-#print(numErrors,"total errors")
-print(numGreater1000000,">Mb")
-print(numGreater100000,">100k")
-print(numGreater10000,">10k")
-print(numGreater1000,">1k")
-print("out of",readsKept,"reads kept")
+ALIGNABILITIES.close()
+REFGAPS.close()
+print(readsKept,"reads kept")
