@@ -53,14 +53,47 @@ def getReadEnds(readGroup,end1or2):
         else: reads.append(pair.read2)
     return reads
 
-def getAlignabilities(anno,bigwig,OUT):
+def getAlignabilities(anno,bigwig):
     for hsp in anno.getHSPs():
         refCoords=hsp.getRefInterval()
         stats=bigwig.stats(hsp.getRefName(),refCoords.getBegin(),
                            refCoords.getEnd(),type="min")
-        for x in stats: print(x,file=OUT,flush=True)
+        #for x in stats: print(x,file=OUT,flush=True)
         minValue=min(stats)
         hsp.setAlignability(minValue)
+
+def process1HSP(anno):
+    # Check whether this shows evidence of NO deletion, or whether it
+    # is off-target
+    pass
+
+def process2HSPs(anno):
+    HSPs=anno.getHSPs(); hsp1=HSPs[0]; hsp2=HSPs[1]
+    interval1=hsp1.getRefInterval(); interval2=hsp2.getRefInterval()
+    gaps=anno.getRefGaps()
+    if(len(gaps)!=1): return
+    gap=gaps[0]
+    if(not gap.overlaps(DELETION_REGION)): 
+        print("possible off-target edit:",anno.getReadID())
+        return ### should report this as possible off-target edit
+
+    d1=FIRST_CUT_SITE-interval1.getEnd()
+    d2=interval2.getBegin()-SECOND_CUT_SITE
+    #print("distances:",d1,d2,sep="\t")
+    if(max(abs(d1),abs(d2))>MAX_ANCHOR_DISTANCE): 
+        print("on-target but imperfect edit:",anno.getReadID())
+        return ### should report this as on-target but imperfect edit
+    print("on-target near-perfect deletion:",anno.getReadID())
+    #MAX_ANCHOR_OVERLAP
+
+def process3HSPs(anno):
+    # Check for evidence of integration or inversion at target site, or of
+    # off-target edits
+    pass
+
+def processManyHSPs(anno):
+    # Complex edits: check whether on-target or off-target
+    pass
 
 #=========================================================================
 # main()
@@ -80,7 +113,13 @@ alignabilityMap=config.lookupOrDie("ALIGNABILITY")
 MIN_ALIGNABILITY=float(config.lookupOrDie("MIN_ALIGNABILITY"))
 
 # Load target locations
-targets=loadTargets(config.lookupOrDie("TARGET_SITES"))
+#targets=loadTargets(config.lookupOrDie("TARGET_SITES"))
+FIRST_CUT_SITE=int(config.lookupOrDie("FIRST_CUT_SITE"))
+SECOND_CUT_SITE=int(config.lookupOrDie("SECOND_CUT_SITE"))
+DELETION_REGION=Interval(FIRST_CUT_SITE,SECOND_CUT_SITE)
+TARGET_CHROM=config.lookupOrDie("TARGET_CHROM")
+MAX_ANCHOR_DISTANCE=int(config.lookupOrDie("MAX_ANCHOR_DISTANCE"))
+MAX_ANCHOR_OVERLAP=int(config.lookupOrDie("MAX_ANCHOR_OVERLAP"))
 
 # Open the ENCODE alignability map
 bigwig=pyBigWig.open(alignabilityMap)
@@ -88,11 +127,9 @@ bigwig=pyBigWig.open(alignabilityMap)
 # Process SAM file
 hspFactory=SamHspFactory()
 stream=SamPairedReadStream(samFile)
-#numErrors=0
-#numGreater1000000=0; numGreater100000=0; numGreater10000=0; numGreater1000=0
-readsKept=0
-ALIGNABILITIES=open("alignabilities.txt","wt")
-REFGAPS=open("ref-gaps.txt","wt")
+#readsKept=0
+#ALIGNABILITIES=open("alignabilities.txt","wt")
+#REFGAPS=open("ref-gaps.txt","wt")
 while(True):
     readGroup=stream.nextGroup()
     if(readGroup is None): break
@@ -104,32 +141,25 @@ while(True):
     HSPs=SamHspClusterer.cluster(HSPs)
     anno=SamAnnotation(HSPs)
 
-    numHSPs=anno.numHSPs()
-    if(not anno.allRefsSame()): continue ### debugging
-    if(anno.firstRef()!="chrX"): continue ### debugging
-    if(numHSPs<2): continue
-    if(anno.anyRefsOverlap()): continue
-    if(not anno.allSameStrand()): continue
+    # Filter based on alignment quality and target chromosome
+    if(not anno.allRefsSame()): continue
+    if(anno.firstRef()!=TARGET_CHROM): continue
     if(anno.lowestPercentIdentity()<MIN_IDENTITY): continue
-    getAlignabilities(anno,bigwig,ALIGNABILITIES)
+    getAlignabilities(anno,bigwig)
     if(anno.getLowestAlignability()<MIN_ALIGNABILITY): continue
+    if(anno.anyRefsOverlap()): continue
 
-    readGapLengths=anno.getReadGapLengths()
-    refGapLengths=anno.getRefGapLengths()
-    #if(len(refGapLengths)==0 or max(refGapLengths)<MAX_REF_GAP): continue ###
+    # Address cases of 1 HSP, 2 HSPs, 3 HSPs, and >3 HSPs
+    numHSPs=anno.numHSPs()
+    if(numHSPs==1): process1HSP(anno)
+    elif(numHSPs==2): process2HSPs(anno)
+    elif(numHSPs==3): process3HSPs(anno)
+    else: processManyHSPs(anno)
 
-    print(readGroup.getID(),"\t==> after clustering there are ",len(HSPs),
-          " HSPs",sep="")
-    for hsp in HSPs:
-        print("\t",hsp.toString(),sep="")
-    if(len(readGapLengths)>0):
-        print("\tREAD GAPS:",",".join([str(x) for x in readGapLengths]))
-    if(len(refGapLengths)>0):
-        print("\tREF GAPS:",",".join([str(x) for x in refGapLengths]))
-        m=max(refGapLengths)
-        print(m,file=REFGAPS,flush=True)
-    readsKept+=1
-    print("----------------------------------------------------------------")
-ALIGNABILITIES.close()
-REFGAPS.close()
-print(readsKept,"reads kept")
+    #if(not anno.allSameStrand()): continue
+
+    #readGapLengths=anno.getReadGapLengths()
+    #refGapLengths=anno.getRefGapLengths()
+    #if(len(refGapLengths)>0 and max(refGapLengths)>MAX_REF_GAP): continue
+    
+
