@@ -68,6 +68,24 @@ def process1HSP(anno):
     pass
 
 def process2HSPs(anno):
+    if(anno.allSameStrand()): 
+        process2HSPsSameStrand(anno)
+    else:
+        process2HSPsDifferentStrand(anno)
+
+def process2HSPsDifferentStrand(anno):
+    # Check for inversions
+    HSPs=anno.getHSPs(); hsp1=HSPs[0]; hsp2=HSPs[1]
+    interval1=hsp1.getRefInterval(); interval2=hsp2.getRefInterval()
+    if(abs(FIRST_CUT_SITE-interval1.getEnd())<=MAX_ANCHOR_DISTANCE and
+       abs(SECOND_CUT_SITE-interval2.getEnd())<=MAX_ANCHOR_DISTANCE or
+       abs(interval1.getBegin()-FIRST_CUT_SITE)<=MAX_ANCHOR_DISTANCE and
+       abs(interval2.getBegin()-SECOND_CUT_SITE)<=MAX_ANCHOR_DISTANCE):
+        print("on-target inversion:",anno.getReadID())
+
+    pass
+
+def process2HSPsSameStrand(anno):
     HSPs=anno.getHSPs(); hsp1=HSPs[0]; hsp2=HSPs[1]
     interval1=hsp1.getRefInterval(); interval2=hsp2.getRefInterval()
     gaps=anno.getRefGaps()
@@ -75,16 +93,14 @@ def process2HSPs(anno):
     gap=gaps[0]
     if(not gap.overlaps(DELETION_REGION)): 
         print("possible off-target edit:",anno.getReadID())
-        return ### should report this as possible off-target edit
+        return
 
     d1=FIRST_CUT_SITE-interval1.getEnd()
     d2=interval2.getBegin()-SECOND_CUT_SITE
-    #print("distances:",d1,d2,sep="\t")
     if(max(abs(d1),abs(d2))>MAX_ANCHOR_DISTANCE): 
         print("on-target but imperfect edit:",anno.getReadID())
-        return ### should report this as on-target but imperfect edit
+        return
     print("on-target near-perfect deletion:",anno.getReadID())
-    #MAX_ANCHOR_OVERLAP
 
 def process3HSPs(anno):
     # Check for evidence of integration or inversion at target site, or of
@@ -119,7 +135,7 @@ SECOND_CUT_SITE=int(config.lookupOrDie("SECOND_CUT_SITE"))
 DELETION_REGION=Interval(FIRST_CUT_SITE,SECOND_CUT_SITE)
 TARGET_CHROM=config.lookupOrDie("TARGET_CHROM")
 MAX_ANCHOR_DISTANCE=int(config.lookupOrDie("MAX_ANCHOR_DISTANCE"))
-MAX_ANCHOR_OVERLAP=int(config.lookupOrDie("MAX_ANCHOR_OVERLAP"))
+#MAX_ANCHOR_OVERLAP=int(config.lookupOrDie("MAX_ANCHOR_OVERLAP"))
 
 # Open the ENCODE alignability map
 bigwig=pyBigWig.open(alignabilityMap)
