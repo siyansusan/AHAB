@@ -24,11 +24,13 @@ from Interval import Interval
 #   refNames=anno.getRefNames() # returns all reference names as a set
 #   n=anno.numDifferentRefs() # returns number of different refs among HSPs
 #   boolean=anno.anyRefsOverlap()
-#   array=anno.getReadGaps(includeMargins=True)
-#   array=anno.getReadGapLengths(includeMargins=True)
+#   array=anno.getReadGaps(includeMargins=False)
+#   array=anno.getReadGapLengths(includeMargins=False)
 #   array=anno.getRefGaps()
 #   array=anno.getRefGapLengths()
 #   L=anno.getReadLength() # returns length of entire read (not just HSP)
+#   N=anno.unalignedLength()
+#   P=anno.unalignedProportion()
 #   identity=anno.lowestPercentIdentity()
 #   x=anno.getLowestAlignability()
 # Class Methods:
@@ -40,6 +42,19 @@ class SamAnnotation:
         self.HSPs=[]
         for hsp in HSPs:
             self.HSPs.append(hsp)
+
+    def alignedProportion(self):
+        L=self.getReadLength()
+        N=self.alignedLength()
+        return float(N)/float(L)
+
+    def alignedLength(self):
+        # Prerequisite: HSPs are non-overlapping on the read
+        aligned=0
+        HSPs=self.HSPs
+        for hsp in HSPs:
+            aligned+=hsp.getReadInterval().getLength()
+        return aligned
 
     def getReadID(self):
         HSPs=self.HSPs

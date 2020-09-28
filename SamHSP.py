@@ -58,6 +58,9 @@ class SamHSP:
         self.strand=Strand.REVERSE if rec.flag_revComp() else Strand.FORWARD
         self.alignability=None
 
+    def containsIndels(self):
+        return not self.cigar.completeMatch()
+
     def getReadID(self):
         return self.rec.getID()
 

@@ -15,13 +15,11 @@ from ConfigFile import ConfigFile
 
 #=========================================================================
 # Attributes:
-#   ON_TARGET_DELETION = file
-#   ON_TARGET_IMPERFECT_DELETION = file
-#   ON_TARGET_NO_EDIT = file
-#   OFF_TARGET_EDIT = file
-#   OFF_TARGET_NO_EDIT = file
+#   readsBinned : int
 # Instance Methods:
 #   ahab=Ahab(OUTPUT_DIR)
+#   ahab.bin(readID,FILE)
+#   ahab.getAlignabilities(anno)
 # Class Methods:
 #   none
 # Private methods:
@@ -32,9 +30,11 @@ class Ahab:
         self.config=ConfigFile(configFile)
         alignabilityMapFile=self.config.lookupOrDie("ALIGNABILITY")
         self.bigwig=pyBigWig.open(alignabilityMapFile)
+        self.readsBinned=0
 
     def bin(self,readID,FILE):
-        print(readID,file=FILE)
+        print(readID,file=FILE,flush=True)
+        self.readsBinned+=1
 
     def getAlignabilities(self,anno):
         for hsp in anno.getHSPs():
