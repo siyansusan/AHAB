@@ -20,10 +20,18 @@ from SamPairedReadStream import SamPairedReadStream
 from SamHspFactory import SamHspFactory
 from SamHspClusterer import SamHspClusterer
 from SamAnnotation import SamAnnotation
-import pyBigWig
-from ConfigFile import ConfigFile
 from Ahab import Ahab
 
+#=========================================================================
+# TODO LIST:
+#  * We're only processing the first read of each pair
+#  * 
+#=========================================================================
+
+
+#=========================================================================
+#                              class Analysis
+#=========================================================================
 class Analysis(Ahab):
     def __init__(self,configFile):
         super().__init__(configFile)
@@ -42,12 +50,13 @@ class Analysis(Ahab):
         self.MAX_ANCHOR_DISTANCE=int(config.lookupOrDie("MAX_ANCHOR_DISTANCE"))
         #self.MAX_ANCHOR_OVERLAP=int(config.lookupOrDie("MAX_ANCHOR_OVERLAP"))
         self.OUTPUT_DIR=config.lookupOrDie("OUTPUT_DIR")
-        self.prepareOutputFiles(OUTPUT_DIR)
+        self.prepareOutputFiles(self.OUTPUT_DIR)
 
     def __del__(self):
         self.ON_TARGET_DELETION.close()
         self.ON_TARGET_IMPERFECT_DELETION.close()
         self.ON_TARGET_NO_EDIT.close()
+        self.ON_TARGET_INVERSION.close()
         self.OFF_TARGET_EDIT.close()
         self.OFF_TARGET_NO_EDIT.close()
 
@@ -59,6 +68,7 @@ class Analysis(Ahab):
         self.ON_TARGET_IMPERFECT_DELETION=\
                open(DIR+"bin-on-target-imperfect-deletion.txt","wt")
         self.ON_TARGET_NO_EDIT=open(DIR+"bin-on-target-no-edit.txt","wt")
+        self.ON_TARGET_INVERSION=open(DIR+"bin-on-target-inversion.txt","wt")
         self.OFF_TARGET_EDIT=open(DIR+"bin-off-target-edit.txt","wt")
         self.OFF_TARGET_NO_EDIT=open(DIR+"bin-off-target-no-edit.txt","wt")
 
@@ -91,7 +101,7 @@ class Analysis(Ahab):
            abs(SECOND_CUT_SITE-interval2.getEnd())<=MAX_ANCHOR_DISTANCE or
            abs(interval1.getBegin()-FIRST_CUT_SITE)<=MAX_ANCHOR_DISTANCE and
            abs(interval2.getBegin()-SECOND_CUT_SITE)<=MAX_ANCHOR_DISTANCE):
-            self.bin(anno.getReadID(),self.ON_TARGET_INVERSION) ###
+            self.bin(anno.getReadID(),self.ON_TARGET_INVERSION)
             
     def process2HSPsSameStrand(self,anno):
         HSPs=anno.getHSPs(); hsp1=HSPs[0]; hsp2=HSPs[1]
@@ -100,7 +110,7 @@ class Analysis(Ahab):
         if(len(gaps)!=1): return
         gap=gaps[0]
         if(not gap.overlaps(self.DELETION_REGION)): 
-            bin(anno.getReadID(),self.OFF_TARGET_EDIT)
+            self.bin(anno.getReadID(),self.OFF_TARGET_EDIT)
             return
         FIRST_CUT_SITE=self.FIRST_CUT_SITE
         SECOND_CUT_SITE=self.SECOND_CUT_SITE
@@ -108,9 +118,9 @@ class Analysis(Ahab):
         d1=FIRST_CUT_SITE-interval1.getEnd()
         d2=interval2.getBegin()-SECOND_CUT_SITE
         if(max(abs(d1),abs(d2))>MAX_ANCHOR_DISTANCE): 
-            bin(anno.getReadID(),self.ON_TARGET_IMPERFECT_DELETION)
+            self.bin(anno.getReadID(),self.ON_TARGET_IMPERFECT_DELETION)
             return
-        bin(anno.getReadID(),self.ON_TARGET_DELETION)
+        self.bin(anno.getReadID(),self.ON_TARGET_DELETION)
 
     def process3HSPs(self,anno):
         # Check for evidence of integration or inversion at target site, or of
@@ -139,6 +149,8 @@ while(True):
     readGroup=stream.nextGroup()
     if(readGroup is None): break
     firstReads=readGroup.getReadEnds(1)
+
+    ### NOTE: we're currently only processing the first read of each pair!
 
     # Should collapse these down to a single line based on a
     # SamAnnotationFactory:
