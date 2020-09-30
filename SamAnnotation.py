@@ -33,6 +33,7 @@ from Interval import Interval
 #   P=anno.unalignedProportion()
 #   identity=anno.lowestPercentIdentity()
 #   x=anno.getLowestAlignability()
+#   SamRecord anno.getSamRecord()
 # Class Methods:
 #   none
 #=========================================================================
@@ -42,6 +43,11 @@ class SamAnnotation:
         self.HSPs=[]
         for hsp in HSPs:
             self.HSPs.append(hsp)
+
+    def getSamRecord(self):
+        HSPs=self.HSPs
+        if(len(HSPs)==0): raise Exception("No HSPs in Annotation")
+        return HSPs[0].getRec()
 
     def alignedProportion(self):
         L=self.getReadLength()

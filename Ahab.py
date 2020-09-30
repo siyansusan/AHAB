@@ -18,7 +18,7 @@ from ConfigFile import ConfigFile
 #   readsBinned : int
 # Instance Methods:
 #   ahab=Ahab(OUTPUT_DIR)
-#   ahab.bin(readID,FILE)
+#   ahab.bin(Annotation,FILE)
 #   ahab.getAlignabilities(anno)
 # Class Methods:
 #   none
@@ -32,8 +32,11 @@ class Ahab:
         self.bigwig=pyBigWig.open(alignabilityMapFile)
         self.readsBinned=0
 
-    def bin(self,readID,FILE):
-        print(readID,file=FILE,flush=True)
+    def bin(self,anno,FILE):
+        readSeq=anno.getSamRecord().getSequence() ### temporary
+        print(anno.getReadID(),readSeq,sep="\t",file=FILE,flush=True) ### temp
+
+        #print(anno.getReadID(),file=FILE,flush=True)
         self.readsBinned+=1
 
     def getAlignabilities(self,anno):

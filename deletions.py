@@ -66,6 +66,7 @@ class Analysis(Ahab):
         self.OFF_TARGET_EDIT.close()
         self.OFF_TARGET_NO_EDIT.close()
         self.MISC.close()
+        self.FAILED_FILTER.close()
 
     def prepareOutputFiles(self,DIR):
         if(not os.path.exists(DIR)):
@@ -81,6 +82,7 @@ class Analysis(Ahab):
         self.OFF_TARGET_EDIT=open(DIR+"bin-off-target-edit.txt","wt")
         self.OFF_TARGET_NO_EDIT=open(DIR+"bin-off-target-no-edit.txt","wt")
         self.MISC=open(DIR+"bin-misc.txt","wt")
+        self.FAILED_FILTER=open(DIR+"bin-failed-filter.txt","wt")
 
     def processCases(self,anno):
         numHSPs=anno.numHSPs()
@@ -96,14 +98,14 @@ class Analysis(Ahab):
         if(interval.contains(self.FIRST_CUT_SITE) or
            interval.contains(self.SECOND_CUT_SITE)):
             if(hsp.containsIndels()):
-                self.bin(anno.getReadID(),self.ON_TARGET_SHORT_INDELS)
+                self.bin(anno,self.ON_TARGET_SHORT_INDELS)
             else:
-                self.bin(anno.getReadID(),self.ON_TARGET_NO_EDIT)
+                self.bin(anno,self.ON_TARGET_NO_EDIT)
             return
         if(hsp.containsIndels()):
-            self.bin(anno.getReadID(),self.OFF_TARGET_EDIT)
+            self.bin(anno,self.OFF_TARGET_EDIT)
         else:
-            self.bin(anno.getReadID(),self.OFF_TARGET_NO_EDIT)
+            self.bin(anno,self.OFF_TARGET_NO_EDIT)
 
 
     def process2HSPs(self,anno):
@@ -126,14 +128,14 @@ class Analysis(Ahab):
            abs(SECOND_CUT_SITE-interval2.getEnd())<=MAX_ANCHOR_DISTANCE or
            abs(interval1.getBegin()-FIRST_CUT_SITE)<=MAX_ANCHOR_DISTANCE and
            abs(interval2.getBegin()-SECOND_CUT_SITE)<=MAX_ANCHOR_DISTANCE):
-            self.bin(anno.getReadID(),self.ON_TARGET_INVERSION)
+            self.bin(anno,self.ON_TARGET_INVERSION)
 
     def checkRefGapDeletion(self,anno):
         gaps=anno.getRefGaps()
         if(len(gaps)!=1): return False
         gap=gaps[0]
         if(not gap.overlaps(self.DELETION_REGION)): 
-            self.bin(anno.getReadID(),self.OFF_TARGET_EDIT)
+            self.bin(anno,self.OFF_TARGET_EDIT)
             return False
         return True
 
@@ -150,7 +152,7 @@ class Analysis(Ahab):
         if(not self.checkRefGapDeletion(anno) or
            not self.readGapSmallerThan(anno,self.MAX_READ_GAP) or
            anno.alignedProportion()<self.MIN_ALIGNED_PROPORTION):
-            self.bin(anno.getReadID(),self.MISC)
+            self.bin(anno,self.MISC)
             return
 
         FIRST_CUT_SITE=self.FIRST_CUT_SITE
@@ -159,19 +161,38 @@ class Analysis(Ahab):
         d1=FIRST_CUT_SITE-interval1.getEnd()
         d2=interval2.getBegin()-SECOND_CUT_SITE
         if(max(abs(d1),abs(d2))>MAX_ANCHOR_DISTANCE): 
-            self.bin(anno.getReadID(),self.ON_TARGET_IMPERFECT_DELETION)
+            self.bin(anno,self.ON_TARGET_IMPERFECT_DELETION)
             return
-        self.bin(anno.getReadID(),self.ON_TARGET_DELETION)
+        self.bin(anno,self.ON_TARGET_DELETION)
 
     def process3HSPs(self,anno):
         ### Need to check for evidence of integration or inversion at target 
         ### site, or of off-target edits
-        self.bin(anno.getReadID(),self.MISC)
+        self.bin(anno,self.MISC)
         pass
 
     def processManyHSPs(self,anno):
         ### Complex edits: need to check whether on-target or off-target
-        self.bin(anno.getReadID(),self.MISC)
+        self.bin(anno,self.MISC)
+
+    def filter(self,anno):
+        if(not anno.allRefsSame()): 
+            self.bin(anno,self.FAILED_FILTER)
+            return False
+        if(anno.firstRef()!=ahab.TARGET_CHROM): 
+            self.bin(anno,self.FAILED_FILTER)
+            return False
+        if(anno.lowestPercentIdentity()<ahab.MIN_IDENTITY): 
+            self.bin(anno,self.FAILED_FILTER)
+            return False
+        ahab.getAlignabilities(anno)
+        if(anno.getLowestAlignability()<ahab.MIN_ALIGNABILITY):
+            self.bin(anno,self.FAILED_FILTER)
+            return False
+        if(anno.anyRefsOverlap()): 
+            self.bin(anno,self.FAILED_FILTER)
+            return False
+        return True
 
 #=========================================================================
 # main()
@@ -201,13 +222,8 @@ while(True):
     HSPs=SamHspClusterer.cluster(HSPs)
     anno=SamAnnotation(HSPs)
 
-    # Filter based on alignment quality and target chromosome
-    if(not anno.allRefsSame()): continue
-    if(anno.firstRef()!=ahab.TARGET_CHROM): continue
-    if(anno.lowestPercentIdentity()<ahab.MIN_IDENTITY): continue
-    ahab.getAlignabilities(anno)
-    if(anno.getLowestAlignability()<ahab.MIN_ALIGNABILITY): continue
-    if(anno.anyRefsOverlap()): continue
+    # Filter based on alignment quality and target chromosome, etc.
+    if(not ahab.filter(anno)): continue
 
     # Address cases of 1 HSP, 2 HSPs, 3 HSPs, and >3 HSPs
     ahab.processCases(anno)
