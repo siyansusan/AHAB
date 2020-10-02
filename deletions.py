@@ -24,6 +24,7 @@ from Ahab import Ahab
 
 #=========================================================================
 # TODO LIST:
+#  * Let user specify -1 as "N/A" for any parameter
 #  * We're only processing the first read of each pair
 #  * Use MAX_ANCHOR_OVERLAP for reads that overlap the deletion region by
 #    a few bp
@@ -35,7 +36,7 @@ from Ahab import Ahab
 #                              class Analysis
 #=========================================================================
 class Analysis(Ahab):
-    def __init__(self,configFile):
+    def __init__(self,configFile,outputDir):
         super().__init__(configFile)
         config=self.config
         dedup=config.lookupOrDie("DEDUPLICATE")
@@ -54,7 +55,7 @@ class Analysis(Ahab):
         self.MAX_READ_GAP=int(config.lookupOrDie("MAX_READ_GAP"))
         self.MIN_ALIGNED_PROPORTION=\
             float(config.lookupOrDie("MIN_ALIGNED_PROPORTION"))
-        self.OUTPUT_DIR=config.lookupOrDie("OUTPUT_DIR")
+        self.OUTPUT_DIR=outputDir
         self.prepareOutputFiles(self.OUTPUT_DIR)
 
     def __del__(self):
@@ -107,7 +108,6 @@ class Analysis(Ahab):
         else:
             self.bin(anno,self.OFF_TARGET_NO_EDIT)
 
-
     def process2HSPs(self,anno):
         if(anno.allSameStrand()): 
             self.process2HSPsSameStrand(anno)
@@ -115,9 +115,6 @@ class Analysis(Ahab):
             self.process2HSPsDifferentStrand(anno)
 
     def process2HSPsDifferentStrand(self,anno):
-        ### I think this is incomplete -- doesn't handle all cases on either
-        ### strand...
-
         # Check for inversions
         HSPs=anno.getHSPs(); hsp1=HSPs[0]; hsp2=HSPs[1]
         interval1=hsp1.getRefInterval(); interval2=hsp2.getRefInterval()
@@ -127,7 +124,11 @@ class Analysis(Ahab):
         if(abs(FIRST_CUT_SITE-interval1.getEnd())<=MAX_ANCHOR_DISTANCE and
            abs(SECOND_CUT_SITE-interval2.getEnd())<=MAX_ANCHOR_DISTANCE or
            abs(interval1.getBegin()-FIRST_CUT_SITE)<=MAX_ANCHOR_DISTANCE and
-           abs(interval2.getBegin()-SECOND_CUT_SITE)<=MAX_ANCHOR_DISTANCE):
+           abs(interval2.getBegin()-SECOND_CUT_SITE)<=MAX_ANCHOR_DISTANCE or
+           abs(FIRST_CUT_SITE-interval2.getEnd())<=MAX_ANCHOR_DISTANCE and
+           abs(SECOND_CUT_SITE-interval1.getEnd())<=MAX_ANCHOR_DISTANCE or
+           abs(interval2.getBegin()-FIRST_CUT_SITE)<=MAX_ANCHOR_DISTANCE and
+           abs(interval1.getBegin()-SECOND_CUT_SITE)<=MAX_ANCHOR_DISTANCE):
             self.bin(anno,self.ON_TARGET_INVERSION)
 
     def checkRefGapDeletion(self,anno):
@@ -136,7 +137,7 @@ class Analysis(Ahab):
         gap=gaps[0]
         if(not gap.overlaps(self.DELETION_REGION)): 
             self.bin(anno,self.OFF_TARGET_EDIT)
-            return False
+            return False ### This results in double-binning
         return True
 
     def readGapSmallerThan(self,anno,MAX):
@@ -147,10 +148,10 @@ class Analysis(Ahab):
     def process2HSPsSameStrand(self,anno):
         HSPs=anno.getHSPs(); hsp1=HSPs[0]; hsp2=HSPs[1]
         interval1=hsp1.getRefInterval(); interval2=hsp2.getRefInterval()
+        if(not self.checkRefGapDeletion(anno)): return
 
         ### This stuff all just gets lumped into the MISC bin:
-        if(not self.checkRefGapDeletion(anno) or
-           not self.readGapSmallerThan(anno,self.MAX_READ_GAP) or
+        if(not self.readGapSmallerThan(anno,self.MAX_READ_GAP) or
            anno.alignedProportion()<self.MIN_ALIGNED_PROPORTION):
             self.bin(anno,self.MISC)
             return
@@ -197,12 +198,12 @@ class Analysis(Ahab):
 #=========================================================================
 # main()
 #=========================================================================
-if(len(sys.argv)!=3):
-    exit(ProgramName.get()+" <filename.sam> <settings.config>\n")
-(samFile,configFilename)=sys.argv[1:]
+if(len(sys.argv)!=4):
+    exit(ProgramName.get()+" <settings.config> <filename.sam> <output-dir>\n")
+(configFilename,samFile,outputDir)=sys.argv[1:]
 
 # Instantiate Ahab object
-ahab=Analysis(configFilename)
+ahab=Analysis(configFilename,outputDir)
 
 # Process SAM file
 hspFactory=SamHspFactory()
@@ -216,8 +217,7 @@ while(True):
 
     ### NOTE: we're currently only processing the first read of each pair!
 
-    # Should collapse these down to a single line based on a
-    # SamAnnotationFactory:
+    # Cluster the HSPs and produce an Alignment object
     HSPs=hspFactory.makeHSPs(firstReads)
     HSPs=SamHspClusterer.cluster(HSPs)
     anno=SamAnnotation(HSPs)
