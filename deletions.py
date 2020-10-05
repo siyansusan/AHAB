@@ -58,6 +58,10 @@ class DeletionAnalysis(Ahab):
         self.OUTPUT_DIR=outputDir
         self.prepareOutputFiles(self.OUTPUT_DIR)
         self.prepareDebuggingFiles(self.OUTPUT_DIR) ### DEBUGGING
+        self.CHROMS=set(("chr1","chr2","chr3","chr4","chr5","chr6",
+                         "chr7","chr8","chr9","chr10","chr11","chr12",
+                         "chr13","chr14","chr15","chr16","chr17","chr18",
+                         "chr19","chr20","chr21","chr22","chrX","chrY"))
 
     def __del__(self):
         self.BIN_ON_TARGET_DELETION.close()
@@ -226,7 +230,8 @@ class DeletionAnalysis(Ahab):
             self.dump(anno,self.DEBUG_FAILED_FILTER)
             return False
         ahab.getAlignabilities(anno)
-        if(anno.getLowestAlignability()<ahab.MIN_ALIGNABILITY):
+        A=anno.getLowestAlignability()
+        if(A is not None and A<ahab.MIN_ALIGNABILITY):
             self.bin(anno,self.BIN_FAILED_FILTER)
             self.dump(anno,self.DEBUG_FAILED_FILTER)
             return False
@@ -262,6 +267,7 @@ while(True):
     HSPs=hspFactory.makeHSPs(firstReads)
     HSPs=SamHspClusterer.cluster(HSPs)
     anno=SamAnnotation(HSPs)
+    ahab.getAlignabilities(anno) ### DEBUGGING (THIS IS DONE AGAIN LATER)
 
     # Filter based on alignment quality and target chromosome, etc.
     if(not ahab.filter(anno)): continue

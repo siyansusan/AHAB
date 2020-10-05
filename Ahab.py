@@ -12,6 +12,7 @@ from Rex import Rex
 rex=Rex()
 import pyBigWig
 from ConfigFile import ConfigFile
+from Strand import Strand
 
 #=========================================================================
 # Attributes:
@@ -32,6 +33,7 @@ class Ahab:
         alignabilityMapFile=self.config.lookupOrDie("ALIGNABILITY")
         self.bigwig=pyBigWig.open(alignabilityMapFile)
         self.readsBinned=0
+        self.CHROMS=set()
 
     def dump(self,anno,FILE):
         HSPs=anno.getHSPs()
@@ -40,7 +42,7 @@ class Ahab:
         for hsp in HSPs:
             print("\t",
                   hsp.getRefName(),
-                  hsp.getStrand(),
+                  Strand.toString(hsp.getStrand()),
                   hsp.getReadInterval().toString(),
                   hsp.getRefInterval().toString(),
                   hsp.getCigar().toString(),
@@ -58,11 +60,13 @@ class Ahab:
 
     def getAlignabilities(self,anno):
         for hsp in anno.getHSPs():
-            refCoords=hsp.getRefInterval()
-            stats=self.bigwig.stats(hsp.getRefName(),refCoords.getBegin(),
-                                    refCoords.getEnd(),type="min")
-            minValue=min(stats)
-            hsp.setAlignability(minValue)
+            if(hsp.getRefName() in self.CHROMS):
+                refCoords=hsp.getRefInterval()
+                stats=self.bigwig.stats(hsp.getRefName(),refCoords.getBegin(),
+                                        refCoords.getEnd(),type="min")
+                minValue=min(stats)
+                hsp.setAlignability(minValue)
+
                 
 
 
