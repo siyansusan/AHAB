@@ -19,6 +19,7 @@ from ConfigFile import ConfigFile
 # Instance Methods:
 #   ahab=Ahab(OUTPUT_DIR)
 #   ahab.bin(Annotation,FILE)
+#   ahab.dump(Annotation,FILE)
 #   ahab.getAlignabilities(anno)
 # Class Methods:
 #   none
@@ -31,6 +32,22 @@ class Ahab:
         alignabilityMapFile=self.config.lookupOrDie("ALIGNABILITY")
         self.bigwig=pyBigWig.open(alignabilityMapFile)
         self.readsBinned=0
+
+    def dump(self,anno,FILE):
+        HSPs=anno.getHSPs()
+        numHSPs=len(HSPs)
+        print(anno.getReadID(),numHSPs,sep="\t",file=FILE,flush=True)
+        for hsp in HSPs:
+            print("\t",
+                  hsp.getRefName(),
+                  hsp.getStrand(),
+                  hsp.getReadInterval().toString(),
+                  hsp.getRefInterval().toString(),
+                  hsp.getCigar().toString(),
+                  hsp.getPercentIdentity(),
+                  hsp.getAlignability(),
+                  hsp.getSeq(),
+                  sep="\t",file=FILE,flush=True)
 
     def bin(self,anno,FILE):
         readSeq=anno.getSamRecord().getSequence() ### temporary

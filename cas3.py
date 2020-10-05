@@ -26,16 +26,14 @@ from Ahab import Ahab
 # TODO LIST:
 #  * Let user specify -1 as "N/A" for any parameter
 #  * We're only processing the first read of each pair
-#  * Use MAX_ANCHOR_OVERLAP for reads that overlap the deletion region by
-#    a few bp
 #  * Add comments here and in all support classes
 #=========================================================================
 
 
 #=========================================================================
-#                              class DeletionAnalysis
+#                              class Cas3Analysis
 #=========================================================================
-class DeletionAnalysis(Ahab):
+class Cas3Analysis(Ahab):
     def __init__(self,configFile,outputDir):
         super().__init__(configFile)
         config=self.config
@@ -46,66 +44,40 @@ class DeletionAnalysis(Ahab):
         self.MIN_IDENTITY=float(config.lookupOrDie("MIN_IDENTITY"))
         self.MAX_REF_GAP=float(config.lookupOrDie("MAX_REF_GAP"))
         self.MIN_ALIGNABILITY=float(config.lookupOrDie("MIN_ALIGNABILITY"))
-        self.FIRST_CUT_SITE=int(config.lookupOrDie("FIRST_CUT_SITE"))
-        self.SECOND_CUT_SITE=int(config.lookupOrDie("SECOND_CUT_SITE"))
-        self.DELETION_REGION=Interval(self.FIRST_CUT_SITE,self.SECOND_CUT_SITE)
+        self.CUT_SITE=int(config.lookupOrDie("CUT_SITE"))
         self.TARGET_CHROM=config.lookupOrDie("TARGET_CHROM")
-        self.MAX_ANCHOR_DISTANCE=int(config.lookupOrDie("MAX_ANCHOR_DISTANCE"))
+        #self.MAX_ANCHOR_DISTANCE=int(config.lookupOrDie("MAX_ANCHOR_DISTANCE"))
         #self.MAX_ANCHOR_OVERLAP=int(config.lookupOrDie("MAX_ANCHOR_OVERLAP"))
         self.MAX_READ_GAP=int(config.lookupOrDie("MAX_READ_GAP"))
         self.MIN_ALIGNED_PROPORTION=\
             float(config.lookupOrDie("MIN_ALIGNED_PROPORTION"))
         self.OUTPUT_DIR=outputDir
         self.prepareOutputFiles(self.OUTPUT_DIR)
-        self.prepareDebuggingFiles(self.OUTPUT_DIR) ### DEBUGGING
 
     def __del__(self):
-        self.BIN_ON_TARGET_DELETION.close()
-        self.BIN_ON_TARGET_IMPERFECT_DELETION.close()
-        self.BIN_ON_TARGET_NO_EDIT.close()
-        self.BIN_ON_TARGET_SHORT_INDELS.close()
-        self.BIN_ON_TARGET_INVERSION.close()
-        self.BIN_OFF_TARGET_EDIT.close()
-        self.BIN_OFF_TARGET_NO_EDIT.close()
-        self.BIN_MISC.close()
-        self.BIN_FAILED_FILTER.close()
+        self.ON_TARGET_DELETION.close()
+        self.ON_TARGET_IMPERFECT_DELETION.close()
+        self.ON_TARGET_NO_EDIT.close()
+        self.ON_TARGET_SHORT_INDELS.close()
+        self.OFF_TARGET_EDIT.close()
+        self.OFF_TARGET_NO_EDIT.close()
+        self.MISC.close()
+        self.FAILED_FILTER.close()
 
     def prepareOutputFiles(self,DIR):
         if(not os.path.exists(DIR)):
             os.system("mkdir -p "+DIR)
         if(not rex.find("(.*)/$",DIR)): DIR=DIR+"/"
-        self.BIN_ON_TARGET_DELETION=open(DIR+"bin-on-target-deletion.txt","wt")
-        self.BIN_ON_TARGET_IMPERFECT_DELETION=\
+        self.ON_TARGET_DELETION=open(DIR+"bin-on-target-deletion.txt","wt")
+        self.ON_TARGET_IMPERFECT_DELETION=\
                open(DIR+"bin-on-target-imperfect-deletion.txt","wt")
-        self.BIN_ON_TARGET_NO_EDIT=open(DIR+"bin-on-target-no-edit.txt","wt")
-        self.BIN_ON_TARGET_SHORT_INDELS=\
+        self.ON_TARGET_NO_EDIT=open(DIR+"bin-on-target-no-edit.txt","wt")
+        self.ON_TARGET_SHORT_INDELS=\
             open(DIR+"bin-on-target-short-indels","wt")
-        self.BIN_ON_TARGET_INVERSION=\
-            open(DIR+"bin-on-target-inversion.txt","wt")
-        self.BIN_OFF_TARGET_EDIT=open(DIR+"bin-off-target-edit.txt","wt")
-        self.BIN_OFF_TARGET_NO_EDIT=open(DIR+"bin-off-target-no-edit.txt","wt")
-        self.BIN_MISC=open(DIR+"bin-misc.txt","wt")
-        self.BIN_FAILED_FILTER=open(DIR+"bin-failed-filter.txt","wt")
-
-    def prepareDebuggingFiles(self,DIR):
-        if(not os.path.exists(DIR)):
-            os.system("mkdir -p "+DIR)
-        if(not rex.find("(.*)/$",DIR)): DIR=DIR+"/"
-        self.DEBUG_ON_TARGET_DELETION=\
-            open(DIR+"debug-on-target-deletion.txt","wt")
-        self.DEBUG_ON_TARGET_IMPERFECT_DELETION=\
-               open(DIR+"debug-on-target-imperfect-deletion.txt","wt")
-        self.DEBUG_ON_TARGET_NO_EDIT=\
-            open(DIR+"debug-on-target-no-edit.txt","wt")
-        self.DEBUG_ON_TARGET_SHORT_INDELS=\
-            open(DIR+"debug-on-target-short-indels","wt")
-        self.DEBUG_ON_TARGET_INVERSION=\
-            open(DIR+"debug-on-target-inversion.txt","wt")
-        self.DEBUG_OFF_TARGET_EDIT=open(DIR+"debug-off-target-edit.txt","wt")
-        self.DEBUG_OFF_TARGET_NO_EDIT=\
-            open(DIR+"debug-off-target-no-edit.txt","wt")
-        self.DEBUG_MISC=open(DIR+"debug-misc.txt","wt")
-        self.DEBUG_FAILED_FILTER=open(DIR+"debug-failed-filter.txt","wt")
+        self.OFF_TARGET_EDIT=open(DIR+"bin-off-target-edit.txt","wt")
+        self.OFF_TARGET_NO_EDIT=open(DIR+"bin-off-target-no-edit.txt","wt")
+        self.MISC=open(DIR+"bin-misc.txt","wt")
+        self.FAILED_FILTER=open(DIR+"bin-failed-filter.txt","wt")
 
     def processCases(self,anno):
         numHSPs=anno.numHSPs()
@@ -118,21 +90,16 @@ class DeletionAnalysis(Ahab):
         # Precondition: 1 HSP only, and is on the target chromosome
         hsp=anno.getHSPs()[0]
         interval=hsp.getRefInterval()
-        if(interval.contains(self.FIRST_CUT_SITE) or
-           interval.contains(self.SECOND_CUT_SITE)):
+        if(interval.contains(self.CUT_SITE)):
             if(hsp.containsIndels()):
-                self.bin(anno,self.BIN_ON_TARGET_SHORT_INDELS)
-                self.dump(anno,self.DEBUG_ON_TARGET_SHORT_INDELS)
+                self.bin(anno,self.ON_TARGET_SHORT_INDELS)
             else:
-                self.bin(anno,self.BIN_ON_TARGET_NO_EDIT)
-                self.dump(anno,self.DEBUG_ON_TARGET_NO_EDIT)
+                self.bin(anno,self.ON_TARGET_NO_EDIT)
             return
         if(hsp.containsIndels()):
-            self.bin(anno,self.BIN_OFF_TARGET_EDIT)
-            self.dump(anno,self.DEBUG_OFF_TARGET_EDIT)
+            self.bin(anno,self.OFF_TARGET_EDIT)
         else:
-            self.bin(anno,self.BIN_OFF_TARGET_NO_EDIT)
-            self.dump(anno,self.DEBUG_OFF_TARGET_NO_EDIT)
+            self.bin(anno,self.OFF_TARGET_NO_EDIT)
 
     def process2HSPs(self,anno):
         if(anno.allSameStrand()): 
@@ -141,34 +108,17 @@ class DeletionAnalysis(Ahab):
             self.process2HSPsDifferentStrand(anno)
 
     def process2HSPsDifferentStrand(self,anno):
-        # Check for inversions
-        HSPs=anno.getHSPs(); hsp1=HSPs[0]; hsp2=HSPs[1]
-        interval1=hsp1.getRefInterval(); interval2=hsp2.getRefInterval()
-        FIRST_CUT_SITE=self.FIRST_CUT_SITE
-        SECOND_CUT_SITE=self.SECOND_CUT_SITE
-        MAX_ANCHOR_DISTANCE=self.MAX_ANCHOR_DISTANCE
-        if(abs(FIRST_CUT_SITE-interval1.getEnd())<=MAX_ANCHOR_DISTANCE and
-           abs(SECOND_CUT_SITE-interval2.getEnd())<=MAX_ANCHOR_DISTANCE or
-           abs(interval1.getBegin()-FIRST_CUT_SITE)<=MAX_ANCHOR_DISTANCE and
-           abs(interval2.getBegin()-SECOND_CUT_SITE)<=MAX_ANCHOR_DISTANCE or
-           abs(FIRST_CUT_SITE-interval2.getEnd())<=MAX_ANCHOR_DISTANCE and
-           abs(SECOND_CUT_SITE-interval1.getEnd())<=MAX_ANCHOR_DISTANCE or
-           abs(interval2.getBegin()-FIRST_CUT_SITE)<=MAX_ANCHOR_DISTANCE and
-           abs(interval1.getBegin()-SECOND_CUT_SITE)<=MAX_ANCHOR_DISTANCE):
-            self.bin(anno,self.BIN_ON_TARGET_INVERSION)
-            self.dump(anno,self.DEBUG_ON_TARGET_INVERSION)
+        self.bin(anno,self.MISC)
 
     def checkRefGapDeletion(self,anno):
         gaps=anno.getRefGaps()
         if(len(gaps)!=1): return False
         gap=gaps[0]
         if(gap.getLength()>self.MAX_REF_GAP):
-            self.bin(anno,self.BIN_FAILED_FILTER)
-            self.dump(anno,self.DEBUG_FAILED_FILTER)
+            self.bin(anno,self.FAILED_FILTER)
             return False
-        if(not gap.overlaps(self.DELETION_REGION)): 
-            self.bin(anno,self.BIN_OFF_TARGET_EDIT)
-            self.dump(anno,self.DEBUG_OFF_TARGET_EDIT)
+        if(not gap.contains(self.CUT_SITE)): 
+            self.bin(anno,self.OFF_TARGET_EDIT)
             return False
         return True
 
@@ -185,8 +135,7 @@ class DeletionAnalysis(Ahab):
         # Check some more filters
         if(not self.readGapSmallerThan(anno,self.MAX_READ_GAP) or
            anno.alignedProportion()<self.MIN_ALIGNED_PROPORTION):
-            self.bin(anno,self.BIN_FAILED_FILTER)
-            self.dump(anno,self.DEBUG_FAILED_FILTER)
+            self.bin(anno,self.FAILED_FILTER)
             return
 
         FIRST_CUT_SITE=self.FIRST_CUT_SITE
@@ -195,44 +144,36 @@ class DeletionAnalysis(Ahab):
         d1=FIRST_CUT_SITE-interval1.getEnd()
         d2=interval2.getBegin()-SECOND_CUT_SITE
         if(max(abs(d1),abs(d2))>MAX_ANCHOR_DISTANCE): 
-            self.bin(anno,self.BIN_ON_TARGET_IMPERFECT_DELETION)
-            self.dump(anno,self.DEBUG_ON_TARGET_IMPERFECT_DELETION)
+            self.bin(anno,self.ON_TARGET_IMPERFECT_DELETION)
             return
-        self.bin(anno,self.BIN_ON_TARGET_DELETION)
-        self.dump(anno,self.DEBUG_ON_TARGET_DELETION)
+        self.bin(anno,self.ON_TARGET_DELETION)
 
     def process3HSPs(self,anno):
         ### Need to check for evidence of integration or inversion at target 
         ### site, or of off-target edits
-        self.bin(anno,self.BIN_MISC)
-        self.dump(anno,self.DEBUG_MISC)
+        self.bin(anno,self.MISC)
+        pass
 
     def processManyHSPs(self,anno):
         ### Complex edits: need to check whether on-target or off-target
-        self.bin(anno,self.BIN_MISC)
-        self.dump(anno,self.DEBUG_MISC)
+        self.bin(anno,self.MISC)
 
     def filter(self,anno):
         if(not anno.allRefsSame()): 
-            self.bin(anno,self.BIN_FAILED_FILTER)
-            self.dump(anno,self.DEBUG_FAILED_FILTER)
+            self.bin(anno,self.FAILED_FILTER)
             return False
         if(anno.firstRef()!=ahab.TARGET_CHROM): 
-            self.bin(anno,self.BIN_FAILED_FILTER)
-            self.dump(anno,self.DEBUG_FAILED_FILTER)
+            self.bin(anno,self.FAILED_FILTER)
             return False
         if(anno.lowestPercentIdentity()<ahab.MIN_IDENTITY): 
-            self.bin(anno,self.BIN_FAILED_FILTER)
-            self.dump(anno,self.DEBUG_FAILED_FILTER)
+            self.bin(anno,self.FAILED_FILTER)
             return False
         ahab.getAlignabilities(anno)
         if(anno.getLowestAlignability()<ahab.MIN_ALIGNABILITY):
-            self.bin(anno,self.BIN_FAILED_FILTER)
-            self.dump(anno,self.DEBUG_FAILED_FILTER)
+            self.bin(anno,self.FAILED_FILTER)
             return False
         if(anno.anyRefsOverlap()): 
-            self.bin(anno,self.BIN_FAILED_FILTER)
-            self.dump(anno,self.DEBUG_FAILED_FILTER)
+            self.bin(anno,self.FAILED_FILTER)
             return False
         return True
 
@@ -244,7 +185,7 @@ if(len(sys.argv)!=4):
 (configFilename,samFile,outputDir)=sys.argv[1:]
 
 # Instantiate Ahab object
-ahab=DeletionAnalysis(configFilename,outputDir)
+ahab=Cas3Analysis(configFilename,outputDir)
 
 # Process SAM file
 hspFactory=SamHspFactory()
