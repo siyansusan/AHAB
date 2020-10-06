@@ -11,6 +11,8 @@ from SamHSP import SamHSP
 from Interval import Interval
 
 #=========================================================================
+# This class represents a set of HSPs (local alignments) for a single read.
+#
 # Attributes:
 #   HSPs : array of SamHSP
 # Instance Methods:
@@ -44,16 +46,25 @@ class SamAnnotation:
         for hsp in HSPs:
             self.HSPs.append(hsp)
 
+    def __del__(self):
+        for hsp in self.HSPs:
+            del hsp
+
+    # This returns the SAM record for the first HSP (note that different HSPs
+    # will have different SAM records, but those records will share some info,
+    # such as the read ID and read sequence)
     def getSamRecord(self):
         HSPs=self.HSPs
         if(len(HSPs)==0): raise Exception("No HSPs in Annotation")
         return HSPs[0].getRec()
 
+    # Returns the aligned proportion, accounting for all HSPs
     def alignedProportion(self):
         L=self.getReadLength()
         N=self.alignedLength()
         return float(N)/float(L)
 
+    # Returns the total aligned length, summed over all HSPs
     def alignedLength(self):
         # Prerequisite: HSPs are non-overlapping on the read
         aligned=0
@@ -68,12 +79,15 @@ class SamAnnotation:
             raise Exception("No HSPs in SamAnnotation::getReadID()")
         return HSPs[0].getReadID()
 
+    # Returns the lowest %identity across all the HSPs, for filtering purposes
     def lowestPercentIdentity(self):
         return min([x.getPercentIdentity() for x in self.HSPs])
 
+    # Returns the lowest alignability across all the HSPs, for filtering
     def getLowestAlignability(self):
         return min([x.getAlignability() for x in self.HSPs])
 
+    # Tells whether all HSPs had the same strand
     def allSameStrand(self):
         HSPs=self.HSPs
         n=len(HSPs)
@@ -83,12 +97,14 @@ class SamAnnotation:
             if(HSPs[i].getStrand()!=strand): return False
         return True
 
+    # Returns the length of the full read
     def getReadLength(self):
         HSPs=self.HSPs
         n=len(HSPs)
         if(n==0): raise Exception("Don't know read length: no HSPs")
         return HSPs[0].getRec().seqLength()
 
+    # Returns a vector of gaps *between* (not within!) HSPs
     def getReadGaps(self,includeMargins=False):
         L=self.getReadLength()
         HSPs=self.HSPs
@@ -108,6 +124,8 @@ class SamAnnotation:
                 intervals.append(Interval(e,L))
         return intervals
 
+    # This is similar to getReadGaps(), except that the coordinates are
+    # on the reference instead of the read
     def getRefGaps(self):
         HSPs=self.HSPs
         numHSPs=len(HSPs)
@@ -119,6 +137,7 @@ class SamAnnotation:
             if(b<e): gaps.append(Interval(b,e))
         return gaps
 
+    # Do any of the reference segments overlap?
     def anyRefsOverlap(self):
         HSPs=self.HSPs
         numHSPs=len(HSPs)
@@ -128,26 +147,33 @@ class SamAnnotation:
                     return True
         return False
 
+    # Returns lengths of gaps between HSPs, measured on the read (not the
+    # reference)
     def getReadGapLengths(self,includeMargins=False):
         intervals=self.getReadGaps(includeMargins)
         lengths=[x.getLength() for x in intervals]
         return lengths
 
+    # Similar to getReadGapLengths(), but measured on the reference
     def getRefGapLengths(self):
         intervals=self.getRefGaps()
         lengths=[x.getLength() for x in intervals]
         return lengths
             
+    # Returns the cardinality of the set of references this read is mapped to
     def numDifferentRefs(self):
         names=self.getRefNames()
         return len(names)
 
+    # Returns the names of all reference sequences this read is mapped to in
+    # this annotation
     def getRefNames(self):
         names=set()
         for hsp in self.HSPs:
             set.add(hsp.getRefName())
         return names
 
+    # Returns the reference of the first HSP
     def firstRef(self):
         HSPs=self.HSPs
         n=len(HSPs)
@@ -160,6 +186,7 @@ class SamAnnotation:
     def getHSPs(self):
         return self.HSPs
 
+    # Tells whether all HSPs in this annotation map to the same reference
     def allRefsSame(self):
         HSPs=self.HSPs
         n=len(HSPs)

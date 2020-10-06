@@ -33,7 +33,7 @@ from Ahab import Ahab
 
 
 #=========================================================================
-#                              class DeletionAnalysis
+#                         class DeletionAnalysis
 #=========================================================================
 class DeletionAnalysis(Ahab):
     def __init__(self,configFile,outputDir):
@@ -58,6 +58,7 @@ class DeletionAnalysis(Ahab):
         self.OUTPUT_DIR=outputDir
         self.prepareOutputFiles(self.OUTPUT_DIR)
         self.prepareDebuggingFiles(self.OUTPUT_DIR) ### DEBUGGING
+        # CHROMS should probably be loaded from a config file:
         self.CHROMS=set(("chr1","chr2","chr3","chr4","chr5","chr6",
                          "chr7","chr8","chr9","chr10","chr11","chr12",
                          "chr13","chr14","chr15","chr16","chr17","chr18",
@@ -216,6 +217,8 @@ class DeletionAnalysis(Ahab):
         self.bin(anno,self.BIN_MISC)
         self.dump(anno,self.DEBUG_MISC)
 
+    # This function applies some filters related to strand, target chromosome,
+    # percent identity, alignability, concordance, etc.
     def filter(self,anno):
         if(not anno.allRefsSame()): 
             self.bin(anno,self.BIN_FAILED_FILTER)
@@ -274,6 +277,7 @@ while(True):
 
     # Address cases of 1 HSP, 2 HSPs, 3 HSPs, and >3 HSPs
     ahab.processCases(anno)
+    del anno
 
 print(ahab.readsBinned,"reads binned, out of ",readsSeen)    
 del ahab # Call destructor to clean up

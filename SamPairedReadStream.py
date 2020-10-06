@@ -12,6 +12,10 @@ from SamPairedRead import SamPairedRead
 from SamPairedReadGroup import SamPairedReadGroup
 
 #=========================================================================
+# This is an adapter class that reads SamRecords from a SamReader and groups
+# them into SamPairedRead objects.  It implements a buffer, to avoid losing
+# reads when reading too far into the SAM file.
+#
 # Attributes:
 #   reader : SamReader
 #   dedup : boolean

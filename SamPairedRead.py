@@ -9,6 +9,11 @@ from builtins import (bytes, dict, int, list, object, range, str, ascii,
    chr, hex, input, next, oct, open, pow, round, super, filter, map, zip)
 
 #=========================================================================
+# class SamPairedRead
+#
+# This class represents a pair of SamRecord objects representing the
+# two reads of a pair.
+#
 # Attributes:
 #   read1, read2 : SamRecord
 # Instance Methods:
@@ -30,11 +35,14 @@ class SamPairedRead:
     def getID(self):
         return self.read1.getID()
 
+    # This returns the sum of the aligned lengths of the two reads; note
+    # that this does NOT account for any overlap!
     def totalAlignedLength(self):
         L1=self.read1.getCigar().totalAlignmentLength()
         L2=self.read2.getCigar().totalAlignmentLength()
         return L1+L2
 
+    # This returns the sum of indel bases in the two reads
     def countIndelBases(self):
         cigar1=self.read1.getCigar()
         cigar2=self.read2.getCigar()
@@ -42,17 +50,20 @@ class SamPairedRead:
         N2=cigar2.countIndelBases()
         return N1+N2
 
+    # This returns the sum of the count of mismatches between the two reads
     def numMismatches(self):
         mis1=self.read1.countMismatches()
         mis2=self.read2.countMismatches()
         return mis1+mis2
 
+    # This computes a match proportion, assuming the two reads do NOT overlap!
     def matchProportion(self):
         L=self.totalAlignedLength()
         mis=self.numMismatches()
         score=float(L-mis)/float(L)
         return score
 
+    # This scoring function is no longer used.
     def computeScore(self):
         mismatches=self.numMismatches()
         matches=self.totalAlignedLength()-mismatches

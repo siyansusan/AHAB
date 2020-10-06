@@ -12,6 +12,14 @@ from Interval import Interval
 from Strand import Strand
 
 #=========================================================================
+# Class SamHSP
+#
+# This class represents an HSP (High-scoring Segment Pair), which is a local
+# alignment between a read and a reference sequence.  It encapsulates the
+# coordinates on the read and reference, and information about the quality of
+# that local alignment.  It also has a link back to the SamRecord used to
+# make the HSP.
+#
 # Attributes:
 #   cigar : CigarString
 #   refName : string
@@ -74,6 +82,7 @@ class SamHSP:
         return self.rec.getSequence()[self.readInterval.getBegin():
                                           self.readInterval.getEnd()]
 
+    # This returns the original SamRecord used to make this HSP
     def getRec(self):
         return self.rec
 
@@ -83,6 +92,7 @@ class SamHSP:
     def forwardStrand(self):
         return self.strand==Strand.FORWARD
 
+    # This generates a printable string for debugging
     def toString(self):
         return self.refName+"|"+Strand.toString(self.strand)+"|"+\
             self.refInterval.toString()+"|"+\
@@ -104,6 +114,9 @@ class SamHSP:
     def getScore(self):
         return self.score
 
+    # This computes a score that is different from the percent identity:
+    # it is #matches / (1+#mismatches+#indelbases).  This score is used
+    # in the clustering step to eliminate overlapping HSPs of lower quality.
     def computeScore(self):
         mismatches=self.rec.countMismatches()
         matches=self.cigar.totalAlignmentLength()-mismatches
@@ -112,12 +125,16 @@ class SamHSP:
         denominator=1+mismatches+indelBases
         self.score=round(float(numerator)/float(denominator),2)
 
+    # Do these HSPs overlap on the read?
     def overlapsOnRead(self,other):
         return self.readInterval.overlaps(other.readInterval)
 
+    # Do these HSPs overlap on the reference sequence?
     def overlapsOnRef(self,other):
         return self.refInterval.overlaps(other.refInterval)
 
+    # This returns the *processed* CIGAR string, which does not include the
+    # soft-mask elements
     def getCigar(self):
         return self.cigar
 

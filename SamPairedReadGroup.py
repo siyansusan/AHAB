@@ -7,8 +7,13 @@ from __future__ import (absolute_import, division, print_function,
    unicode_literals, generators, nested_scopes, with_statement)
 from builtins import (bytes, dict, int, list, object, range, str, ascii,
    chr, hex, input, next, oct, open, pow, round, super, filter, map, zip)
+from SamPairedRead import SamPairedRead
 
 #=========================================================================
+# class SamPairedReadGroup
+#
+# This class represents a group of paired reads having the same read ID.
+#
 # Attributes:
 #   ID : string
 #   readPairs : array of SamPairedRead
@@ -27,7 +32,9 @@ class SamPairedReadGroup:
     def __init__(self):
         self.ID=None
         self.readPairs=[]
-
+        
+    # This returns either all of the first reads (1) or the second reads (2)
+    # of the pairs, depending on the parameter "end1or2"
     def getReadEnds(self,end1or2):
         reads=[]
         for pair in self.readPairs:
@@ -41,6 +48,7 @@ class SamPairedReadGroup:
     def getID(self):
         return self.ID
 
+    # This returns the read pairs
     def getReads(self):
         return self.readPairs
 

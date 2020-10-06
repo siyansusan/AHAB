@@ -15,6 +15,11 @@ from ConfigFile import ConfigFile
 from Strand import Strand
 
 #=========================================================================
+# Class Ahab
+# 
+# This class should be used to encapsulate common functionality across all
+# different analysis scripts.
+#
 # Attributes:
 #   readsBinned : int
 # Instance Methods:
@@ -35,6 +40,7 @@ class Ahab:
         self.readsBinned=0
         self.CHROMS=set()
 
+    # This method prints out debugging information for the HSPs of a read
     def dump(self,anno,FILE):
         HSPs=anno.getHSPs()
         numHSPs=len(HSPs)
@@ -51,6 +57,7 @@ class Ahab:
                   hsp.getSeq(),
                   sep="\t",file=FILE,flush=True)
 
+    # This method bins a read by writing into a bin file
     def bin(self,anno,FILE):
         readSeq=anno.getSamRecord().getSequence() ### temporary
         print(anno.getReadID(),readSeq,sep="\t",file=FILE,flush=True) ### temp
@@ -58,6 +65,8 @@ class Ahab:
         #print(anno.getReadID(),file=FILE,flush=True)
         self.readsBinned+=1
 
+    # This calls bigwit.stats() to get the alignabilities for all windows
+    # overlapping any HSPs in this annotation
     def getAlignabilities(self,anno):
         for hsp in anno.getHSPs():
             if(hsp.getRefName() in self.CHROMS):

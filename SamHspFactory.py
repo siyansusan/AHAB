@@ -12,11 +12,13 @@ from SamRecord import SamRecord
 from CigarString import CigarString
 
 #=========================================================================
+# This class manufactures HSPs from SAM records
+#
 # Attributes:
 #   keepOps : set of string
 # Instance Methods:
 #   factory=SamHspFactory()
-#   HSPs=factory.makeHSPs(reads)
+#   HSPs=factory.makeHSPs(SamRecords)
 # Private Methods:
 #   cigar=self.processCigar(cigar)
 # Class Methods:
@@ -27,6 +29,8 @@ class SamHspFactory:
     def __init__(self):
         self.keepOps=set(["M","I","D","=","X"])
 
+    # Given a set of SamRecord objects, this function computes intervals of
+    # local alignments and manufactures a set of HSPs
     def makeHSPs(self,reads):
         HSPs=[]
         for read in reads:
@@ -37,6 +41,8 @@ class SamHspFactory:
             HSPs.append(hsp)
         return HSPs
 
+    # This processes a CIGAR string by removing soft-mask and other unwanted
+    # ops
     def processCigar(self,cigar):
         keepOps=self.keepOps
         keep=[]

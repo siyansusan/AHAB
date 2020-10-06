@@ -45,25 +45,3 @@ class SamHspClusterer:
         nonoverlapping.sort(key=lambda hsp: hsp.getReadInterval().getBegin())
         return nonoverlapping
 
-    # THIS IS THE OLD VERSION, WHICH IS OBSOLETE:
-    # One flaw in this function is that if multiple HSPs have the same score,
-    # it will arbitrarily keep one of them, whereas we should probably discard
-    # the entire read due to ambiguous alignment
-    @classmethod
-    def cluster_OBSOLETE(cls,raw):
-        HSPs=[x for x in raw]
-        HSPs.sort(key=lambda hsp: hsp.getReadInterval().getBegin())
-        for hsp in HSPs: hsp.computeScore()
-        n=len(HSPs)
-        i=0
-        while(i<n-1):
-            while(HSPs[i].overlapsOnRead(HSPs[i+1])):
-                if(HSPs[i].getScore()<HSPs[i+1].getScore()):
-                    del HSPs[i]
-                else:
-                    del HSPs[i+1]
-                n-=1
-                if(i>=n-1): break
-            i+=1
-        return HSPs
-
