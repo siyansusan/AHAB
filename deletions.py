@@ -270,7 +270,7 @@ while(True):
     HSPs=hspFactory.makeHSPs(firstReads)
     HSPs=SamHspClusterer.cluster(HSPs)
     anno=SamAnnotation(HSPs)
-    ahab.getAlignabilities(anno) ### DEBUGGING (THIS IS DONE AGAIN LATER)
+    #ahab.getAlignabilities(anno) ### DEBUGGING (THIS IS DONE AGAIN LATER)
 
     # Filter based on alignment quality and target chromosome, etc.
     if(not ahab.filter(anno)): continue

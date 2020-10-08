@@ -37,6 +37,7 @@ class Ahab:
         self.config=ConfigFile(configFile)
         alignabilityMapFile=self.config.lookupOrDie("ALIGNABILITY")
         self.bigwig=pyBigWig.open(alignabilityMapFile)
+        #print(self.bigwig.chroms())
         self.readsBinned=0
         self.CHROMS=set()
 
@@ -71,6 +72,8 @@ class Ahab:
         for hsp in anno.getHSPs():
             if(hsp.getRefName() in self.CHROMS):
                 refCoords=hsp.getRefInterval()
+                #print("BIGWIG QUERY:",hsp.getRefName(),refCoords.getBegin(),
+                #      refCoords.getEnd(),sep="\t")
                 stats=self.bigwig.stats(hsp.getRefName(),refCoords.getBegin(),
                                         refCoords.getEnd(),type="min")
                 minValue=min(stats)
