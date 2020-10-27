@@ -46,6 +46,7 @@ class Cas3Analysis(Ahab):
         self.MIN_ALIGNABILITY=float(config.lookupOrDie("MIN_ALIGNABILITY"))
         self.CUT_SITE=int(config.lookupOrDie("CUT_SITE"))
         self.TARGET_CHROM=config.lookupOrDie("TARGET_CHROM")
+        self.PRIMER_SEQ=config.lookupOrDie("PRIMER_SEQ")
         #self.MAX_ANCHOR_DISTANCE=int(config.lookupOrDie("MAX_ANCHOR_DISTANCE"))
         #self.MAX_ANCHOR_OVERLAP=int(config.lookupOrDie("MAX_ANCHOR_OVERLAP"))
         self.MAX_READ_GAP=int(config.lookupOrDie("MAX_READ_GAP"))
@@ -53,6 +54,10 @@ class Cas3Analysis(Ahab):
             float(config.lookupOrDie("MIN_ALIGNED_PROPORTION"))
         self.OUTPUT_DIR=outputDir
         self.prepareOutputFiles(self.OUTPUT_DIR)
+        self.CHROMS=set(("chr1","chr2","chr3","chr4","chr5","chr6",
+                         "chr7","chr8","chr9","chr10","chr11","chr12",
+                         "chr13","chr14","chr15","chr16","chr17","chr18",
+                         "chr19","chr20","chr21","chr22","chrX","chrY"))
 
     def __del__(self):
         self.ON_TARGET_DELETION.close()
@@ -88,6 +93,22 @@ class Cas3Analysis(Ahab):
 
     def process1HSP(self,anno):
         # Precondition: 1 HSP only, and is on the target chromosome
+
+        hsp=anno.getHSPs()[0]
+        if(self.PRIMER_SEQ in anno.getSamRecord().getSequence()):
+            if(hsp.containsIndels()):
+                self.bin(anno,self.ON_TARGET_SHORT_INDELS)
+            else:
+                self.bin(anno,self.ON_TARGET_NO_EDIT)
+            return
+        if(hsp.containsIndels()):
+            self.bin(anno,self.OFF_TARGET_EDIT)
+        else:
+            self.bin(anno,self.OFF_TARGET_NO_EDIT)
+
+
+    def process1HSP_OLD(self,anno):
+        # Precondition: 1 HSP only, and is on the target chromosome
         hsp=anno.getHSPs()[0]
         interval=hsp.getRefInterval()
         if(interval.contains(self.CUT_SITE)):
@@ -115,9 +136,13 @@ class Cas3Analysis(Ahab):
         if(len(gaps)!=1): return False
         gap=gaps[0]
         if(gap.getLength()>self.MAX_REF_GAP):
+            print("XXX1",gap.getLength(),"> MAX_REF_GAP") ###
             self.bin(anno,self.FAILED_FILTER)
             return False
-        if(not gap.contains(self.CUT_SITE)): 
+        if(self.PRIMER_SEQ not in anno.getSamRecord().getSequence()):
+            print("XXX10 NO PRIMER SEQ")
+        #if(not gap.contains(self.CUT_SITE)): 
+        #    print("XXX2",gap.toString(),"does not contain",self.CUT_SITE) ###
             self.bin(anno,self.OFF_TARGET_EDIT)
             return False
         return True
@@ -125,6 +150,7 @@ class Cas3Analysis(Ahab):
     def readGapSmallerThan(self,anno,MAX):
         gaps=anno.getReadGapLengths()
         if(len(gaps)==0): return True
+        if(gaps[0]>=MAX): print("XXX3",gaps[0],">",MAX) ###
         return gaps[0]<MAX
             
     def process2HSPsSameStrand(self,anno):
@@ -135,17 +161,11 @@ class Cas3Analysis(Ahab):
         # Check some more filters
         if(not self.readGapSmallerThan(anno,self.MAX_READ_GAP) or
            anno.alignedProportion()<self.MIN_ALIGNED_PROPORTION):
+            if(anno.alignedProportion()<self.MIN_ALIGNED_PROPORTION):
+                print("XXX4",anno.alignedProportion(),"<",self.MIN_ALIGNED_PROPORTION)
             self.bin(anno,self.FAILED_FILTER)
             return
-
-        FIRST_CUT_SITE=self.FIRST_CUT_SITE
-        SECOND_CUT_SITE=self.SECOND_CUT_SITE
-        MAX_ANCHOR_DISTANCE=self.MAX_ANCHOR_DISTANCE
-        d1=FIRST_CUT_SITE-interval1.getEnd()
-        d2=interval2.getBegin()-SECOND_CUT_SITE
-        if(max(abs(d1),abs(d2))>MAX_ANCHOR_DISTANCE): 
-            self.bin(anno,self.ON_TARGET_IMPERFECT_DELETION)
-            return
+        
         self.bin(anno,self.ON_TARGET_DELETION)
 
     def process3HSPs(self,anno):
@@ -160,19 +180,24 @@ class Cas3Analysis(Ahab):
 
     def filter(self,anno):
         if(not anno.allRefsSame()): 
+            print("XXX5")
             self.bin(anno,self.FAILED_FILTER)
             return False
         if(anno.firstRef()!=ahab.TARGET_CHROM): 
+            print("XXX6",anno.firstRef(),"!=",ahab.TARGET_CHROM)
             self.bin(anno,self.FAILED_FILTER)
             return False
         if(anno.lowestPercentIdentity()<ahab.MIN_IDENTITY): 
+            print("XXX7",anno.lowestPercentIdentity(),"<",ahab.MIN_IDENTITY)
             self.bin(anno,self.FAILED_FILTER)
             return False
         ahab.getAlignabilities(anno)
         if(anno.getLowestAlignability()<ahab.MIN_ALIGNABILITY):
+            print("XXX8",anno.getLowestAlignability(),"<",ahab.MIN_ALIGNABILITY)
             self.bin(anno,self.FAILED_FILTER)
             return False
         if(anno.anyRefsOverlap()): 
+            print("XXX9")
             self.bin(anno,self.FAILED_FILTER)
             return False
         return True

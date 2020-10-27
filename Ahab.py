@@ -66,6 +66,13 @@ class Ahab:
         #print(anno.getReadID(),file=FILE,flush=True)
         self.readsBinned+=1
 
+    def getMinAlignability(self,A):
+        a=[]
+        for x in A:
+            if(x is not None): a.append(x)
+        if(len(a)>0): return min(a)
+        return 0
+
     # This calls bigwit.stats() to get the alignabilities for all windows
     # overlapping any HSPs in this annotation
     def getAlignabilities(self,anno):
@@ -76,7 +83,8 @@ class Ahab:
                 #      refCoords.getEnd(),sep="\t")
                 stats=self.bigwig.stats(hsp.getRefName(),refCoords.getBegin(),
                                         refCoords.getEnd(),type="min")
-                minValue=min(stats)
+                #minValue=min(stats)
+                minValue=self.getMinAlignability(stats)
                 hsp.setAlignability(minValue)
 
                 
