@@ -1,58 +1,63 @@
-#=========================================================================
+# =========================================================================
 # This is OPEN SOURCE SOFTWARE governed by the Gnu General Public
 # License (GPL) version 3, as described at www.opensource.org.
 # Copyright (C)2016 William H. Majoros (martiandna@gmail.com).
-#=========================================================================
+# Author: Siyan Liu
+# =========================================================================
 from __future__ import (absolute_import, division, print_function,
-   unicode_literals, generators, nested_scopes, with_statement)
+                        unicode_literals, generators, nested_scopes, with_statement)
 from builtins import (bytes, dict, int, list, object, range, str, ascii,
-   chr, hex, input, next, oct, open, pow, round, super, filter, map, zip)
+                      chr, hex, input, next, oct, open, pow, round, super, filter, map, zip)
+
 from SamHSP import SamHSP
 from SamRecord import SamRecord
 from CigarString import CigarString
 
-#=========================================================================
-# This class manufactures HSPs from SAM records
-#
-# Attributes:
-#   keepOps : set of string
-# Instance Methods:
-#   factory=SamHspFactory()
-#   HSPs=factory.makeHSPs(SamRecords)
-# Private Methods:
-#   cigar=self.processCigar(cigar)
-# Class Methods:
-#   none
-#=========================================================================
-class SamHspFactory:
-    """SamHspFactory"""
-    def __init__(self):
-        self.keepOps=set(["M","I","D","=","X"])
 
-    # Given a set of SamRecord objects, this function computes intervals of
-    # local alignments and manufactures a set of HSPs
-    def makeHSPs(self,reads):
-        HSPs=[]
+class SamHspFactory:
+    """
+    This class manufactures HSPs from SAM records
+
+    Attributes:
+        keepOps : set of string
+    Instance Methods:
+        factory=SamHspFactory()
+        HSPs=factory.makeHSPs(SamRecords)
+    Private Methods:
+        cigar=self.processCigar(cigar)
+    Class Methods:
+        none
+    """
+
+    def __init__(self):
+        self.keepOps = set(["M", "I", "D", "=", "X"])
+
+    def makeHSPs(self, reads):
+        """
+        Given a set of SamRecord objects, this function computes intervals of
+        local alignments and manufactures a set of HSPs.
+        """
+        HSPs = []
         for read in reads:
-            cigar=read.getCigar()
+            cigar = read.getCigar()
             cigar.computeIntervals(read.getRefPos())
-            cigar=self.processCigar(cigar)
-            hsp=SamHSP(read,cigar)
+            cigar = self.processCigar(cigar)
+            hsp = SamHSP(read, cigar)
             HSPs.append(hsp)
         return HSPs
 
-    # This processes a CIGAR string by removing soft-mask and other unwanted
-    # ops
-    def processCigar(self,cigar):
-        keepOps=self.keepOps
-        keep=[]
-        n=cigar.length()
+    def processCigar(self, cigar):
+        """
+        This processes a CIGAR string by removing soft-mask and other unwanted
+        ops
+        """
+        keepOps = self.keepOps
+        keep = []
+        n = cigar.length()
         for i in range(n):
-            op=cigar[i]
-            #if(op.getOp()=="S" and i>0 and i<n-1):
-            #    raise Exception("Nested soft mask detected in cigar string")
-            if(op.getOp() in keepOps):
+            op = cigar[i]
+            if op.getOp() in keepOps:
                 keep.append(op)
-        new=CigarString("")
+        new = CigarString("")
         new.setOps(keep)
         return new
