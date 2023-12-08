@@ -13,7 +13,7 @@ from ConfigFile import ConfigFile
 from Strand import Strand
 
 
-class Ahab:
+class Tracer:
     """
     This class should be used to encapsulate common functionality across all
     different analysis scripts.
@@ -21,10 +21,10 @@ class Ahab:
     Attributes:
         readsBinned : int
     Instance Methods:
-        ahab=Ahab(OUTPUT_DIR)
-        ahab.bin(Annotation,FILE)
-        ahab.dump(Annotation,FILE)
-        ahab.getAlignabilities(anno)
+        tracer=Tracer(OUTPUT_DIR)
+        tracer.bin(Annotation,FILE)
+        tracer.dump(Annotation,FILE)
+        tracer.getAlignabilities(anno)
     Class Methods:
         none
     Private methods:
